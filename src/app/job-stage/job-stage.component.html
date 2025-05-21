@@ -1,0 +1,24 @@
+<div class="p-4">
+  <h2 class="text-xl font-bold mb-4">Available Jobs</h2>
+
+  <table class="table-auto w-full border border-gray-300 text-sm">
+    <thead class="bg-gray-100">
+      <tr>
+        <th class="border p-2">Job No</th>
+        <th class="border p-2">Description</th>
+        <th class="border p-2">Ship</th>
+        <th class="border p-2">QC Start Date</th>
+        <th class="border p-2">Department</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let job of jobs">
+        <td class="border p-2">{{ job.jobno }}</td>
+        <td class="border p-2">{{ job.jobdescription }}</td>
+        <td class="border p-2">{{ job.shipdesc }}</td>
+        <td class="border p-2">{{ job.qcstartdate }}</td>
+        <td class="border p-2">{{ job.department }}</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
