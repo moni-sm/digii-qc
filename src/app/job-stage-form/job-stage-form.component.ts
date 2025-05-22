@@ -299,75 +299,75 @@ export class JobStageFormComponent implements OnInit {
   }
 
   onSubmit(): void {
-  if (this.stageForm.invalid) {
-    this.stageForm.markAllAsTouched();
-    return;
-  }
-
-  const formValue = this.stageForm.getRawValue();
-  const stageData: JobStage = {
-    stageNo: formValue.stageNo,
-    stageDesc: formValue.stageDesc,
-    precedingStage: formValue.precedingStage,
-    startDate: formValue.startDate,
-    endDate: formValue.endDate,
-    qap: formValue.qap
-  };
-
-  if (this.isEditMode) {
-    this.updateStage(formValue.jobNo, stageData);
-  } else {
-    this.addNewStage(formValue.jobNo, stageData);
-  }
-}
-
-
-private updateStage(jobNo: string, stageData: JobStage): void {
-  if (stageData.precedingStage !== '---') {
-    const job = this.jobs.find(j => j.jobno === jobNo);
-    const otherRootStages = job?.stages?.filter(s =>
-      s.stageNo !== this.currentStageNo && s.precedingStage === '---'
-    ) || [];
-
-    if (otherRootStages.length === 0) {
-      alert('At least one stage in a job should have preceding stage as "---".');
+    if (this.stageForm.invalid) {
+      this.stageForm.markAllAsTouched();
       return;
+    }
+
+    const formValue = this.stageForm.getRawValue();
+    const stageData: JobStage = {
+      stageNo: formValue.stageNo,
+      stageDesc: formValue.stageDesc,
+      precedingStage: formValue.precedingStage,
+      startDate: formValue.startDate,
+      endDate: formValue.endDate,
+      qap: formValue.qap
+    };
+
+    if (this.isEditMode) {
+      this.updateStage(formValue.jobNo, stageData);
+    } else {
+      this.addNewStage(formValue.jobNo, stageData);
     }
   }
 
-  this.jobService.updateStage(jobNo, this.currentStageNo!, stageData).subscribe({
-    next: () => {
-      alert('Stage updated successfully!');
-      // Navigate back to list or reset form as needed
-    },
-    error: (err) => console.error('Error updating stage:', err)
-  });
-}
 
-private addNewStage(jobNo: string, stageData: JobStage): void {
-  this.jobService.addStage(jobNo, stageData).subscribe({
-    next: () => {
-      alert('Stage added successfully!');
+  private updateStage(jobNo: string, stageData: JobStage): void {
+    if (stageData.precedingStage !== '---') {
+      const job = this.jobs.find(j => j.jobno === jobNo);
+      const otherRootStages = job?.stages?.filter(s =>
+        s.stageNo !== this.currentStageNo && s.precedingStage === '---'
+      ) || [];
 
-      const currentJobNo = this.stageForm.get('jobNo')?.value;
+      if (otherRootStages.length === 0) {
+        alert('At least one stage in a job should have preceding stage as "---".');
+        return;
+      }
+    }
 
-      this.stageForm.reset({
-        jobNo: currentJobNo,
-        stageNo: null,
-        stageDesc: '',
-        precedingStage: '---',
-        startDate: '',
-        endDate: '',
-        qap: ''
-      });
+    this.jobService.updateStage(jobNo, this.currentStageNo!, stageData).subscribe({
+      next: () => {
+        alert('Stage updated successfully!');
+        // Navigate back to list or reset form as needed
+      },
+      error: (err) => console.error('Error updating stage:', err)
+    });
+  }
 
-      this.existingStages = [];
-      this.filteredQAPs = this.allQAPs;
-      this.minStartDate = '';
-      this.currentJobDepartment = '';
-    },
-    error: (err: any) => console.error('Error adding stage:', err)
-  });
-}
+  private addNewStage(jobNo: string, stageData: JobStage): void {
+    this.jobService.addStage(jobNo, stageData).subscribe({
+      next: () => {
+        alert('Stage added successfully!');
+
+        const currentJobNo = this.stageForm.get('jobNo')?.value;
+
+        this.stageForm.reset({
+          jobNo: currentJobNo,
+          stageNo: null,
+          stageDesc: '',
+          precedingStage: '---',
+          startDate: '',
+          endDate: '',
+          qap: ''
+        });
+
+        this.existingStages = [];
+        this.filteredQAPs = this.allQAPs;
+        this.minStartDate = '';
+        this.currentJobDepartment = '';
+      },
+      error: (err: any) => console.error('Error adding stage:', err)
+    });
+  }
 
 }
