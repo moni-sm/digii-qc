@@ -1,22 +1,26 @@
+// job-list.component.ts
 import { Component, OnInit } from '@angular/core';
+import { JobStageService } from '../services/job-stage.service';
+import { Job } from '../../models/job.model';
 import { CommonModule } from '@angular/common';
-import { HttpClient, HttpClientModule } from '@angular/common/http';
+import { RouterModule } from '@angular/router';
+import { HttpClientModule } from '@angular/common/http';
 
 @Component({
-  selector: 'app-job-stage',
+  selector: 'app-job-list',
   standalone: true,
-  imports: [CommonModule, HttpClientModule],
+  imports: [CommonModule, RouterModule,HttpClientModule],
   templateUrl: './job-stage.component.html',
   styleUrls: ['./job-stage.component.scss']
 })
-export class JobStageComponent implements OnInit {
-  jobs: any[] = [];
+export class JobListComponent implements OnInit {
+  jobs: Job[] = [];
 
-  constructor(private readonly http: HttpClient) {}
+  constructor(private jobService: JobStageService) {}
 
   ngOnInit(): void {
-    this.http.get('assets/jobs.json').subscribe(data => {
-      this.jobs = data as any[];
+    this.jobService.getJobs().subscribe(jobs => {
+      this.jobs = jobs;
     });
   }
 }

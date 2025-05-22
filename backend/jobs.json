@@ -1,0 +1,123 @@
+[
+  {
+    "id": "1",
+    "jobno": "1234",
+    "jobdescription": "Repair the MD pump",
+    "shipid": "2",
+    "shipdesc": "INS Mumbai",
+    "qcstartdate": "2025-05-23",
+    "department": "QCE",
+    "stages": [
+      {
+        "stageNo": 1,
+        "stageDesc": "stage1",
+        "precedingStage": "---",
+        "startDate": "2025-05-27",
+        "endDate": "2025-05-27",
+        "qap": "QCE74MQAPECI009"
+      },
+      {
+        "stageNo": 2,
+        "stageDesc": "stage2",
+        "precedingStage": "1",
+        "startDate": "2025-05-28",
+        "endDate": "2025-05-28",
+        "qap": "QCE74MQAPECI006"
+      },
+      {
+        "stageNo": 3,
+        "stageDesc": "stage 3",
+        "precedingStage": "2",
+        "startDate": "2025-05-28",
+        "endDate": "2025-05-28",
+        "qap": "QCE74MQAPECI006"
+      },
+      {
+        "stageNo": 4,
+        "stageDesc": "stage 4",
+        "precedingStage": "1",
+        "startDate": "2025-05-29",
+        "endDate": "2025-05-29",
+        "qap": "QCE74MQAPECI006"
+      },
+      {
+        "stageNo": 5,
+        "stageDesc": "stage5",
+        "precedingStage": "1",
+        "startDate": "2025-05-30",
+        "endDate": "2025-05-30",
+        "qap": "undefined"
+      }
+    ]
+  },
+  {
+    "id": "2",
+    "jobno": "3456",
+    "jobdescription": "Overhaul the AC motor",
+    "shipid": "1",
+    "shipdesc": "INS Trikand",
+    "qcstartdate": "2025-05-28",
+    "department": "QCLW",
+    "stages": [
+      {
+        "stageNo": 1,
+        "stageDesc": "stage1",
+        "precedingStage": "---",
+        "startDate": "2025-05-28",
+        "endDate": "2025-05-29",
+        "qap": "QCLW074MQAP017"
+      },
+      {
+        "stageNo": 2,
+        "stageDesc": "stage 1",
+        "precedingStage": "1",
+        "startDate": "2025-05-29",
+        "endDate": "2025-05-29",
+        "qap": "QCLW074MQAP019"
+      },
+      {
+        "stageNo": 3,
+        "stageDesc": "stage 3",
+        "precedingStage": "2",
+        "startDate": "2025-05-29",
+        "endDate": "2025-05-29",
+        "qap": "QCLW074MQAP011"
+      }
+    ]
+  },
+  {
+    "id": "3",
+    "jobno": "4567",
+    "jobdescription": "Overhaul the DC motor",
+    "shipid": "5",
+    "shipdesc": "INS Vikranth",
+    "qcstartdate": "2025-05-28",
+    "department": "QCLW",
+    "stages": [
+      {
+        "stageNo": 1,
+        "stageDesc": "stage 1",
+        "precedingStage": "---",
+        "startDate": "2025-05-29",
+        "endDate": "2025-05-29",
+        "qap": "QCLW074MQAP017"
+      },
+      {
+        "stageNo": 2,
+        "stageDesc": "stage 2",
+        "precedingStage": "1",
+        "startDate": "2025-05-29",
+        "endDate": "2025-05-29",
+        "qap": "QCLW074MQAP018"
+      },
+      {
+        "stageNo": 3,
+        "stageDesc": "stage 3",
+        "precedingStage": "2",
+        "startDate": "2025-05-29",
+        "endDate": "2025-05-29",
+        "qap": "QCLW074MQAP018"
+      }
+    ]
+  }
+]
