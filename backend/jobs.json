@@ -15,30 +15,6 @@
         "startDate": "2025-05-27",
         "endDate": "2025-05-27",
         "qap": "QCE74MQAPECI009"
-      },
-      {
-        "stageNo": 2,
-        "stageDesc": "stage2",
-        "precedingStage": "1",
-        "startDate": "2025-05-28",
-        "endDate": "2025-05-28",
-        "qap": "QCE74MQAPECI006"
-      },
-      {
-        "stageNo": 3,
-        "stageDesc": "stage 3",
-        "precedingStage": "2",
-        "startDate": "2025-05-28",
-        "endDate": "2025-05-28",
-        "qap": "QCE74MQAPECI006"
-      },
-      {
-        "stageNo": 4,
-        "stageDesc": "stage 4",
-        "precedingStage": "1",
-        "startDate": "2025-05-29",
-        "endDate": "2025-05-29",
-        "qap": "QCE74MQAPECI006"
       }
     ]
   },
@@ -66,14 +42,6 @@
         "startDate": "2025-05-29",
         "endDate": "2025-05-29",
         "qap": "QCLW074MQAP019"
-      },
-      {
-        "stageNo": 3,
-        "stageDesc": "stage 3",
-        "precedingStage": "2",
-        "startDate": "2025-05-29",
-        "endDate": "2025-05-29",
-        "qap": "QCLW074MQAP011"
       }
     ]
   },
