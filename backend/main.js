@@ -1,39 +1,69 @@
 const { app, BrowserWindow } = require('electron');
 const path = require('path');
+const { spawn } = require('child_process');
 
-const startServer = require('./server'); // Import the startServer function
+let mainWindow;
+let backendProcess;
 
-async function createWindow() {
-  const win = new BrowserWindow({
+const isDev = process.env.NODE_ENV === 'development';
+
+function createWindow() {
+  mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
+    show: false,
     webPreferences: {
-      nodeIntegration: false,
-      contextIsolation: true,
+      nodeIntegration: true, // Only if you trust your codebase
+      contextIsolation: false, // Not recommended for production
     },
   });
 
-  // Load your Angular app dev server URL
-  win.loadURL('http://localhost:4200');
+  const appUrl = isDev
+    ? 'http://localhost:4200'
+    : `file://${path.join(__dirname, '../dist/job-stage-app/index.html')}`;
 
-  // Open dev tools for debugging (optional)
-  win.webContents.openDevTools();
+  mainWindow.loadURL(appUrl);
+
+  mainWindow.once('ready-to-show', () => {
+    mainWindow.show();
+  });
+
+  mainWindow.on('closed', () => {
+    mainWindow = null;
+  });
 }
 
-app.whenReady().then(async () => {
-  try {
-    await startServer();  // Wait for backend server to start
-    createWindow();
-  } catch (err) {
-    console.error('Failed to start backend server:', err);
-    app.quit();
-  }
-
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+function startBackend() {
+  // Only spawn the backend server if it's not already running
+  backendProcess = spawn('node', [path.join(__dirname, 'server.js')], {
+    shell: true,
+    env: process.env,
+    stdio: 'inherit',
   });
+
+  backendProcess.on('error', (err) => {
+    console.error('Failed to start backend:', err);
+  });
+
+  backendProcess.on('exit', (code) => {
+    console.log(`Backend process exited with code ${code}`);
+  });
+}
+
+app.whenReady().then(() => {
+  startBackend();
+  createWindow();
 });
 
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit();
+  if (process.platform !== 'darwin') {
+    if (backendProcess) backendProcess.kill();
+    app.quit();
+  }
+});
+
+app.on('activate', () => {
+  if (BrowserWindow.getAllWindows().length === 0) {
+    createWindow();
+  }
 });

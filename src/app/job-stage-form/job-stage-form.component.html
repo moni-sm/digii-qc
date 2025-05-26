@@ -1,51 +1,60 @@
-<form [formGroup]="stageForm" (ngSubmit)="onSubmit()" class="max-w-md mx-auto p-6 bg-white rounded-lg shadow-md">
-  <h2 class="text-xl font-bold mb-4">
-    {{ isEditMode ? 'Edit Stage' : 'Create Stage for Job' }}
+<form [formGroup]="stageForm" (ngSubmit)="onSubmit()" class="max-w-xl mx-auto p-6 bg-white rounded-lg shadow">
+  <h2 class="text-2xl font-bold mb-6 text-center">
+    {{ isEditMode ? 'Edit Stage for Job ' + currentJob?.jobno : 'Create Stage for Job' }}
   </h2>
+
   <!-- Job No -->
   <div class="mb-4">
-    <label for="jobNoSelect" class="block text-gray-700 mb-2">Job No</label>
-    <select id="jobNoSelect" formControlName="jobNo" class="w-full p-2 border rounded" [disabled]="isEditMode">
-      <option value="">Select Job</option>
-      <option *ngFor="let job of jobs" [value]="job.jobno">{{ job.jobno }} - {{ job.jobdescription }}</option>
-    </select>
-    <div *ngIf="stageForm.get('jobNo')?.invalid && stageForm.get('jobNo')?.touched" class="text-red-500 text-sm">
-      Job No is required
-    </div>
+    <label for="jobNoSelect" class="block font-medium text-gray-700 mb-1">Job No</label>
+    <ng-container *ngIf="isEditMode; else jobSelect">
+      <div class="p-2 bg-gray-100 border rounded">
+        {{ currentJob?.jobno }} - {{ currentJob?.jobdescription }}
+      </div>
+      <input type="hidden" id="jobNoHidden" formControlName="jobNo" />
+    </ng-container>
+    <ng-template #jobSelect>
+      <select *ngIf="!isEditMode" id="jobNoSelect" formControlName="jobNo" class="w-full p-2 border rounded">
+        <option value="">Select Job</option>
+        <option *ngFor="let job of jobs" [value]="job.jobno">{{ job.jobno }} - {{ job.jobdescription }}</option>
+      </select>
+      <div *ngIf="stageForm.get('jobNo')?.touched && stageForm.get('jobNo')?.invalid" class="text-red-500 text-sm">
+        Job No is required
+      </div>
+    </ng-template>
   </div>
+
   <!-- Stage No -->
   <div class="mb-4">
-    <label for="stageNoInput" class="block text-gray-700 mb-2">Stage No</label>
-    <input id="stageNoInput" type="number" formControlName="stageNo" class="w-full p-2 border rounded" min="1"
-      [disabled]="isEditMode" />
-    <div
-      *ngIf="(stageForm.get('stageNo')?.invalid && stageForm.get('stageNo')?.touched) || stageForm.errors?.['stageNumberNotUnique']"
-      class="text-red-500 text-sm">
-      <span *ngIf="stageForm.get('stageNo')?.errors?.['required']">Stage number is required</span>
-      <span *ngIf="stageForm.get('stageNo')?.errors?.['min']">Must be at least 1</span>
-      <span *ngIf="stageForm.errors?.['stageNumberNotUnique']">Stage already exists for this job</span>
+    <label for="stageNoInput" class="block font-medium text-gray-700 mb-1">Stage No</label>
+    <input id="stageNoInput" type="number" min="1" formControlName="stageNo" class="w-full border rounded p-2" />
+    <div *ngIf="stageForm.get('stageNo')?.touched && stageForm.get('stageNo')?.invalid" class="text-red-500 text-sm">
+      <div *ngIf="stageForm.get('stageNo')?.errors?.['required']">Stage No is required</div>
+      <div *ngIf="stageForm.get('stageNo')?.errors?.['min']">Must be at least 1</div>
+    </div>
+    <div *ngIf="stageForm.errors?.['stageNumberNotUnique']" class="text-red-500 text-sm">
+      Stage number already exists for this job
     </div>
   </div>
 
   <!-- Stage Description -->
   <div class="mb-4">
-    <label for="stageDescInput" class="block text-gray-700 mb-2">Stage Description</label>
-    <input id="stageDescInput" type="text" formControlName="stageDesc" class="w-full p-2 border rounded"
-      maxlength="20" />
-    <div *ngIf="stageForm.get('stageDesc')?.invalid && stageForm.get('stageDesc')?.touched"
+    <label for="stageDescInput" class="block font-medium text-gray-700 mb-1">Stage Description</label>
+    <input id="stageDescInput" type="text" maxlength="20" formControlName="stageDesc" class="w-full border rounded p-2"
+      placeholder="Enter stage description" />
+    <div *ngIf="stageForm.get('stageDesc')?.touched && stageForm.get('stageDesc')?.invalid"
       class="text-red-500 text-sm">
-      <span *ngIf="stageForm.get('stageDesc')?.errors?.['required']">Description is required</span>
-      <span *ngIf="stageForm.get('stageDesc')?.errors?.['maxlength']">Maximum 20 characters allowed</span>
+      <div *ngIf="stageForm.get('stageDesc')?.errors?.['required']">Description is required</div>
+      <div *ngIf="stageForm.get('stageDesc')?.errors?.['maxlength']">Max 20 characters allowed</div>
     </div>
   </div>
 
   <!-- Preceding Stage -->
   <div class="mb-4">
-    <label for="precedingStageSelect" class="block text-gray-700 mb-2">Preceding Stage</label>
-    <select id="precedingStageSelect" formControlName="precedingStage" class="w-full p-2 border rounded">
-      <option value="---">---</option>
+    <label for="precedingStageSelect" class="block font-medium text-gray-700 mb-1">Preceding Stage</label>
+    <select id="precedingStageSelect" formControlName="precedingStage" class="w-full border rounded p-2">
+      <option value="---">--- (No preceding stage)</option>
       <option *ngFor="let stage of existingStages" [value]="stage.stageNo"
-        [hidden]="stage.stageNo >= (stageForm.get('stageNo')?.value || Infinity)">
+        [hidden]="stage.stageNo >= (stageForm.get('stageNo')?.value || 999999)">
         {{ stage.stageNo }} - {{ stage.stageDesc }}
       </option>
     </select>
@@ -53,46 +62,55 @@
 
   <!-- Start Date -->
   <div class="mb-4">
-    <label for="startDateInput" class="block text-gray-700 mb-2">Start Date</label>
-    <input id="startDateInput" type="date" formControlName="startDate" [min]="minStartDate"
-      class="w-full p-2 border rounded" />
-    <div *ngIf="stageForm.get('startDate')?.invalid && stageForm.get('startDate')?.touched"
+    <label for="startDateInput" class="block font-medium text-gray-700 mb-1">Start Date</label>
+    <input id="startDateInput" type="date" formControlName="startDate" [min]="minStartDate" class="w-full border rounded p-2" />
+    <div *ngIf="stageForm.get('startDate')?.touched && stageForm.get('startDate')?.invalid"
       class="text-red-500 text-sm">
-      <span *ngIf="stageForm.get('startDate')?.errors?.['required']">Start date is required</span>
-      <span *ngIf="stageForm.get('startDate')?.errors?.['invalidStartDate']">Cannot be before QC start date</span>
-      <span *ngIf="stageForm.get('startDate')?.errors?.['startDateBeforePreceding']">Must be after preceding stage's end
-        date</span>
+      <div *ngIf="stageForm.get('startDate')?.errors?.['required']">Start date is required</div>
+      <div *ngIf="stageForm.get('startDate')?.errors?.['invalidStartDate']">
+        Cannot be before QC start date ({{ minStartDate | date }})
+      </div>
+      <div *ngIf="stageForm.get('startDate')?.errors?.['startDateBeforePreceding']">
+        Must be after preceding stage's end date
+      </div>
     </div>
   </div>
 
   <!-- End Date -->
   <div class="mb-4">
-    <label for="endDateInput" class="block text-gray-700 mb-2">End Date</label>
-    <input id="endDateInput" type="date" formControlName="endDate" class="w-full p-2 border rounded" />
-    <div *ngIf="stageForm.get('endDate')?.invalid && stageForm.get('endDate')?.touched" class="text-red-500 text-sm">
-      <span *ngIf="stageForm.get('endDate')?.errors?.['required']">End date is required</span>
+    <label for="endDateInput" class="block font-medium text-gray-700 mb-1">End Date</label>
+    <input id="endDateInput" type="date" formControlName="endDate" class="w-full border rounded p-2"
+      [min]="stageForm.get('startDate')?.value" />
+    <div *ngIf="stageForm.get('endDate')?.touched && stageForm.get('endDate')?.invalid" class="text-red-500 text-sm">
+      <div *ngIf="stageForm.get('endDate')?.errors?.['required']">End date is required</div>
     </div>
-    <div *ngIf="stageForm.errors?.['dateRangeInvalid'] && stageForm.touched" class="text-red-500 text-sm">
+    <div *ngIf="stageForm.errors?.['dateRangeInvalid']" class="text-red-500 text-sm">
       End date must be after start date
     </div>
   </div>
 
   <!-- QAP -->
   <div class="mb-4">
-    <label for="qapSelect" class="block text-gray-700 mb-2">QAP</label>
-    <select id="qapSelect" formControlName="qap" class="w-full p-2 border rounded">
+    <label for="qapSelect" class="block font-medium text-gray-700 mb-1">QAP</label>
+    <select id="qapSelect" formControlName="qap" class="w-full border rounded p-2">
       <option value="">Select QAP</option>
-      <option *ngFor="let qap of filteredQAPs" [value]="qap.qapName">{{ qap.qapName }}</option>
+      <option *ngFor="let qap of filteredQAPs" [value]="qap.qapNumber">
+        {{ qap.qapNumber }} ({{ qap.department }})
+      </option>
     </select>
-    <div *ngIf="stageForm.get('qap')?.invalid && stageForm.get('qap')?.touched" class="text-red-500 text-sm">
-      QAP selection is required
+    <div *ngIf="stageForm.get('qap')?.touched && stageForm.get('qap')?.invalid" class="text-red-500 text-sm">
+      QAP is required
+    </div>
+    <div *ngIf="stageForm.get('jobNo')?.value && filteredQAPs.length === 0" class="text-yellow-600 text-sm">
+      No QAPs available for {{ currentJobDepartment }} department
     </div>
   </div>
 
-  <!-- Submit Button -->
+  <!-- Submit -->
   <div class="mt-6">
-    <button type="submit" class="w-full bg-blue-600 text-white p-2 rounded hover:bg-blue-700 transition">
-      {{ isEditMode ? 'Update' : 'Submit' }}
+    <button type="submit" [disabled]="stageForm.invalid || stageForm.pristine"
+      class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded disabled:bg-gray-400 disabled:cursor-not-allowed">
+      {{ isEditMode ? 'Update Stage' : 'Add Stage' }}
     </button>
   </div>
 </form>

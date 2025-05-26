@@ -3,12 +3,21 @@ import { JobStageService } from '../services/job-stage.service';
 import { Job, JobStage } from '../../models/job.model';
 import { CommonModule } from '@angular/common';
 import {
-  ReactiveFormsModule, FormBuilder, FormGroup, Validators,
-  AbstractControl, ValidationErrors, ValidatorFn
+  ReactiveFormsModule,
+  FormBuilder,
+  FormGroup,
+  Validators,
+  AbstractControl,
+  ValidationErrors,
+  FormControl
 } from '@angular/forms';
-import { ActivatedRoute, Router, RouterModule } from '@angular/router';
+import { RouterModule, ActivatedRoute, Router } from '@angular/router';
 import { HttpClientModule } from '@angular/common/http';
-import { distinctUntilChanged, debounceTime } from 'rxjs/operators';
+
+interface QAP {
+  qapNumber: string;
+  department: string;
+}
 
 @Component({
   selector: 'app-stage-form',
@@ -19,15 +28,18 @@ import { distinctUntilChanged, debounceTime } from 'rxjs/operators';
 })
 export class JobStageFormComponent implements OnInit {
   jobs: Job[] = [];
-  allQAPs: any[] = [];
-  filteredQAPs: any[] = [];
+  allQAPs: QAP[] = [];
+  filteredQAPs: QAP[] = [];
   existingStages: JobStage[] = [];
+  precedingStageOptions: string[] = [];
   minStartDate: string = '';
   currentJobDepartment: string = '';
-  Infinity = Infinity;
-  stageForm: FormGroup;
+  currentJob: Job | null = null;
+
   isEditMode = false;
-  currentStageNo: number | null = null;
+  editingStageIndex: number | null = null;
+
+  stageForm: FormGroup;
 
   constructor(
     private readonly jobService: JobStageService,
@@ -36,142 +48,235 @@ export class JobStageFormComponent implements OnInit {
     private readonly router: Router
   ) {
     this.stageForm = this.fb.group({
-      jobNo: ['', Validators.required],
-      stageNo: [null, [Validators.required, Validators.min(1)]],
-      stageDesc: ['', [Validators.required, Validators.maxLength(20)]],
-      precedingStage: ['---'],
-      startDate: ['', [Validators.required]],
-      endDate: ['', [Validators.required]],
-      qap: ['', Validators.required]
-    }, {
-      validators: [
-        this.validateStartEndDateRange()
-      ]
-    });
+      jobNo: new FormControl({ value: '', disabled: false }, Validators.required),
+      stageNo: new FormControl({ value: null, disabled: true }, [Validators.required, Validators.min(1)]),
+      stageDesc: new FormControl({ value: '', disabled: true }, [Validators.required, Validators.maxLength(20)]),
+      precedingStage: new FormControl({ value: '---', disabled: true }),
+      startDate: new FormControl({ value: '', disabled: true }, [Validators.required, this.validateStartDate.bind(this)]),
+      endDate: new FormControl({ value: '', disabled: true }, Validators.required),
+      qap: new FormControl({ value: '', disabled: true }, Validators.required)
+    }, { validators: [this.validateStageNumberUniqueness.bind(this), this.validateDateRange.bind(this)] });
   }
 
   ngOnInit(): void {
-    this.jobService.getJobs().subscribe((jobs: Job[]) => {
+    this.jobService.getJobs().subscribe(jobs => {
       this.jobs = jobs;
 
-      // Add uniqueness validator after jobs load
-      this.stageForm.addValidators(this.createStageNumberUniquenessValidator());
-      this.stageForm.updateValueAndValidity({ onlySelf: true });
+      this.route.paramMap.subscribe(params => {
+        const jobNo = params.get('jobNo');
+        const stageNo = params.get('stageNo');
+
+        if (jobNo && stageNo) {
+          this.isEditMode = true;
+          const job = this.jobs.find(j => j.jobno === jobNo);
+
+          if (!job) {
+            alert(`Job ${jobNo} not found`);
+            this.router.navigate(['/jobs']);
+            return;
+          }
+
+          const stageIndex = job.stages?.findIndex(s => s.stageNo.toString() === stageNo) ?? -1;
+          if (stageIndex < 0) {
+            alert(`Stage ${stageNo} not found`);
+            this.router.navigate(['/jobs']);
+            return;
+          }
+
+          this.editingStageIndex = stageIndex;
+          this.currentJob = job;
+          this.existingStages = job.stages?.filter(s => s.stageNo !== +stageNo) || [];
+          this.minStartDate = job.qcstartdate;
+          this.currentJobDepartment = job.department;
+          this.filterQAPsByDepartment();
+
+          const stage = job.stages![stageIndex];
+          this.stageForm.patchValue({
+            jobNo: job.jobno,
+            stageNo: stage.stageNo,
+            stageDesc: stage.stageDesc,
+            precedingStage: stage.precedingStage ?? '---',
+            startDate: stage.startDate,
+            endDate: stage.endDate,
+            qap: stage.qap
+          });
+
+          this.stageForm.get('jobNo')?.disable();
+          this.stageForm.get('stageNo')?.disable();
+          this.enableAllControls();
+          this.updatePrecedingStageOptions();
+        } else {
+          this.isEditMode = false;
+          this.editingStageIndex = null;
+          this.resetForm();
+        }
+      });
     });
 
-    this.jobService.getQAPs().subscribe((qaps: any[]) => {
+    this.jobService.getQAPs().subscribe(qaps => {
       this.allQAPs = qaps;
       this.filteredQAPs = qaps;
     });
 
-    // Optimized jobNo valueChanges to reduce latency
-    this.stageForm.get('jobNo')?.valueChanges.pipe(
-      distinctUntilChanged(),
-      debounceTime(200)
-    ).subscribe(jobNo => {
-      if (!jobNo) {
-        this.disableControlsExceptJobNo();
-        this.resetJobDependentFields({ emitEvent: false });
-        return;
-      }
+    this.stageForm.get('jobNo')?.valueChanges.subscribe(jobNo => {
+      this.currentJob = this.jobs.find(j => j.jobno === jobNo) ?? null;
+      this.existingStages = this.currentJob?.stages || [];
+      this.minStartDate = this.currentJob?.qcstartdate || '';
+      this.currentJobDepartment = this.currentJob?.department || '';
+      this.filterQAPsByDepartment();
 
-      this.route.params.subscribe(params => {
-        const jobNo = params['jobNo'];
-        const stageNo = params['stageNo'];
-
-        if (jobNo && stageNo) {
-          this.isEditMode = true;
-          this.currentStageNo = +stageNo;
-          this.loadStageForEdit(jobNo, +stageNo);
-        } else {
-          this.isEditMode = false;
-          this.currentStageNo = null;
-        }
-      });
-
-      // Direct synchronous update instead of microtask queue
-      const job = this.jobs.find(j => j.jobno === jobNo);
-      if (job) {
-        this.existingStages = job.stages || [];
-        this.minStartDate = job.qcstartdate;
-        this.currentJobDepartment = job.department;
-
-        this.filteredQAPs = this.allQAPs.filter(qap =>
-          qap.department === this.currentJobDepartment
-        );
-
-        // Patch related controls efficiently with emitEvent: false
-        this.stageForm.patchValue({
-          stageNo: null,
-          precedingStage: '---',
-          startDate: '',
-          endDate: '',
-          qap: ''
-        }, { emitEvent: false });
-
+      if (jobNo) {
         this.enableAllControls();
-        this.stageForm.setErrors(null);
+        this.updatePrecedingStageOptions();
       } else {
-        this.existingStages = [];
-        this.minStartDate = '';
-        this.currentJobDepartment = '';
-        this.filteredQAPs = this.allQAPs;
-
-        this.resetJobDependentFields({ emitEvent: false });
         this.disableControlsExceptJobNo();
+        this.resetEditMode();
+        this.clearDependentFields();
       }
+    });
+
+    this.stageForm.get('stageNo')?.valueChanges.subscribe(() => {
+      this.updatePrecedingStageOptions();
+      this.stageForm.updateValueAndValidity();
+    });
+
+    this.stageForm.get('precedingStage')?.valueChanges.subscribe(value => {
+      this.updateStartDateValidatorBasedOnPreceding(value);
     });
 
     if (!this.stageForm.get('jobNo')?.value) {
       this.disableControlsExceptJobNo();
     }
+  }
 
-    this.stageForm.get('stageNo')?.valueChanges.subscribe(() => {
-      this.updatePrecedingStageOptions();
-    });
+  private validateStageNumberUniqueness(formGroup: FormGroup): ValidationErrors | null {
+    const stageNo = formGroup.get('stageNo')?.value;
+    const jobNo = formGroup.get('jobNo')?.value;
 
-    this.stageForm.get('precedingStage')?.valueChanges.subscribe(value => {
-      const startDateControl = this.stageForm.get('startDate');
+    if (!stageNo || !jobNo) return null;
 
-      if (value !== '---') {
-        const precedingStage = this.existingStages.find(s => s.stageNo.toString() === value);
-        if (precedingStage) {
-          startDateControl?.setValidators([
-            Validators.required,
-            this.validateStartDateAfterPreceding.bind(this, precedingStage.endDate)
-          ]);
-        }
-      } else {
-        startDateControl?.setValidators([
-          Validators.required,
-          this.validateStartDate.bind(this)
-        ]);
+    if (this.isEditMode && this.editingStageIndex !== null && this.currentJob) {
+      const editingStage = this.currentJob.stages?.[this.editingStageIndex];
+      if (editingStage && editingStage.stageNo === stageNo) {
+        return null;
       }
+    }
 
-      startDateControl?.updateValueAndValidity({ emitEvent: false });
+    const job = this.jobs.find(j => j.jobno === jobNo);
+    const isStageNoUnique = !job?.stages?.some(s => s.stageNo === stageNo);
+    return isStageNoUnique ? null : { stageNumberNotUnique: true };
+  }
+
+  private validateStartDate(control: AbstractControl): ValidationErrors | null {
+    const startDate = control.value;
+    if (!startDate || !this.minStartDate) return null;
+
+    const start = new Date(startDate);
+    const min = new Date(this.minStartDate);
+    return start < min ? { startDateTooEarly: true } : null;
+  }
+
+  private validateDateRange(formGroup: FormGroup): ValidationErrors | null {
+    const startDate = formGroup.get('startDate')?.value;
+    const endDate = formGroup.get('endDate')?.value;
+
+    if (!startDate || !endDate) return null;
+
+    return new Date(startDate) > new Date(endDate) ? { dateRangeInvalid: true } : null;
+  }
+
+  onSubmit(): void {
+    this.stageForm.markAllAsTouched();
+    if (this.stageForm.invalid) return;
+
+    const formValue = this.stageForm.getRawValue();
+    const newStage: JobStage = {
+      stageNo: formValue.stageNo,
+      stageDesc: formValue.stageDesc,
+      precedingStage: formValue.precedingStage === '---' ? null : formValue.precedingStage,
+      startDate: formValue.startDate,
+      endDate: formValue.endDate,
+      qap: formValue.qap
+    };
+
+    const job = this.jobs.find(j => j.jobno === formValue.jobNo);
+    if (!job) return;
+
+    if (this.isEditMode && this.editingStageIndex !== null) {
+      this.jobService.updateStage(job.jobno, newStage.stageNo, newStage).subscribe({
+        next: () => {
+          alert('Stage updated successfully!');
+          job.stages![this.editingStageIndex!] = newStage;
+          this.resetForm();
+          this.router.navigate(['/jobs']);
+        },
+        error: err => console.error('Error updating stage:', err)
+      });
+    } else {
+      this.jobService.addStage(job.jobno, newStage).subscribe({
+        next: () => {
+          alert('Stage added successfully!');
+          this.resetForm();
+          this.router.navigate(['/jobs']);
+        },
+        error: err => console.error('Error adding stage:', err)
+      });
+    }
+  }
+
+  private resetForm(): void {
+    const currentJobNo = this.stageForm.getRawValue().jobNo || '';
+    this.stageForm.reset({
+      jobNo: currentJobNo,
+      stageNo: null,
+      stageDesc: '',
+      precedingStage: '---',
+      startDate: '',
+      endDate: '',
+      qap: ''
     });
+    this.resetEditMode();
 
-    this.stageForm.get('startDate')?.valueChanges.subscribe(startDate => {
-      const endDateControl = this.stageForm.get('endDate');
-      const endDate = endDateControl?.value;
+    const job = this.jobs.find(j => j.jobno === currentJobNo);
+    this.currentJob = job ?? null;
+    this.existingStages = job?.stages || [];
+    this.minStartDate = job?.qcstartdate || '';
+    this.currentJobDepartment = job?.department || '';
+    this.filterQAPsByDepartment();
+    this.updatePrecedingStageOptions();
 
-      if (startDate && endDate && new Date(startDate) > new Date(endDate)) {
-        endDateControl?.setValue(startDate, { emitEvent: false });
-      }
-    });
+    if (currentJobNo) {
+      this.enableAllControls();
+    } else {
+      this.disableControlsExceptJobNo();
+    }
+  }
 
-    this.stageForm.get('endDate')?.valueChanges.subscribe(endDate => {
-      const startDateControl = this.stageForm.get('startDate');
-      const startDate = startDateControl?.value;
+  private resetEditMode(): void {
+    this.isEditMode = false;
+    this.editingStageIndex = null;
+  }
 
-      if (startDate && endDate && new Date(endDate) < new Date(startDate)) {
-        startDateControl?.setValue(endDate, { emitEvent: false });
-      }
+  private enableAllControls(): void {
+    Object.keys(this.stageForm.controls).forEach(controlName => {
+      this.stageForm.get(controlName)?.enable();
     });
   }
 
-  // Helper to reset fields depending on job selection without full reset
-  private resetJobDependentFields(opts?: { emitEvent?: boolean }) {
+  private disableControlsExceptJobNo(): void {
+    ['stageNo', 'stageDesc', 'precedingStage', 'startDate', 'endDate', 'qap'].forEach(controlName => {
+      this.stageForm.get(controlName)?.disable();
+      this.stageForm.get(controlName)?.reset();
+    });
+  }
+
+  private filterQAPsByDepartment(): void {
+    this.filteredQAPs = this.currentJobDepartment
+      ? this.allQAPs.filter(qap => qap.department === this.currentJobDepartment)
+      : [];
+  }
+
+  private clearDependentFields(): void {
     this.stageForm.patchValue({
       stageNo: null,
       stageDesc: '',
@@ -179,195 +284,33 @@ export class JobStageFormComponent implements OnInit {
       startDate: '',
       endDate: '',
       qap: ''
-    }, opts);
-  }
-
-  private loadStageForEdit(jobNo: string, stageNo: number): void {
-    this.jobService.getJobs().subscribe((jobs: Job[]) => {
-      this.jobs = jobs;
-      const job = jobs.find(j => j.jobno === jobNo);
-
-      if (job && job.stages) {
-        this.existingStages = job.stages;
-        const stageToEdit = job.stages.find(s => s.stageNo === stageNo);
-
-        if (stageToEdit) {
-          this.stageForm.patchValue({
-            jobNo: jobNo,
-            stageNo: stageToEdit.stageNo,
-            stageDesc: stageToEdit.stageDesc,
-            precedingStage: stageToEdit.precedingStage,
-            startDate: stageToEdit.startDate,
-            endDate: stageToEdit.endDate,
-            qap: stageToEdit.qap
-          });
-
-          // Disable jobNo and stageNo in edit mode
-          this.stageForm.get('jobNo')?.disable();
-          this.stageForm.get('stageNo')?.disable();
-
-          this.minStartDate = job.qcstartdate;
-          this.currentJobDepartment = job.department;
-          this.filteredQAPs = this.allQAPs.filter(qap =>
-            qap.department === this.currentJobDepartment
-          );
-        }
-      }
     });
-  }
-
-  private disableControlsExceptJobNo() {
-    Object.keys(this.stageForm.controls).forEach(controlName => {
-      if (controlName !== 'jobNo') {
-        const control = this.stageForm.get(controlName);
-        if (control?.enabled) {
-          control.disable({ emitEvent: false });
-        }
-      }
-    });
-  }
-
-  private enableAllControls() {
-    Object.keys(this.stageForm.controls).forEach(controlName => {
-      const control = this.stageForm.get(controlName);
-      if (control?.disabled) {
-        control.enable({ emitEvent: false });
-      }
-    });
+    this.filteredQAPs = [];
+    this.existingStages = [];
+    this.minStartDate = '';
+    this.currentJobDepartment = '';
+    this.currentJob = null;
   }
 
   private updatePrecedingStageOptions(): void {
     const currentStageNo = this.stageForm.get('stageNo')?.value;
-    if (currentStageNo) {
-      const availableStages = this.existingStages.filter(stage =>
-        stage.stageNo < currentStageNo
-      );
-      const currentPreceding = this.stageForm.get('precedingStage')?.value;
-      if (currentPreceding !== '---' &&
-        !availableStages.some(s => s.stageNo.toString() === currentPreceding)) {
-        this.stageForm.get('precedingStage')?.setValue('---', { emitEvent: false });
+    this.precedingStageOptions = this.existingStages
+      .filter(stage => stage.stageNo !== currentStageNo)
+      .map(stage => stage.stageNo.toString());
+
+    this.precedingStageOptions.unshift('---');
+  }
+
+  private updateStartDateValidatorBasedOnPreceding(precedingStageNo: string): void {
+    if (precedingStageNo && precedingStageNo !== '---') {
+      const precedingStage = this.existingStages.find(s => s.stageNo.toString() === precedingStageNo);
+      if (precedingStage?.endDate) {
+        this.minStartDate = precedingStage.endDate;
+        this.stageForm.get('startDate')?.updateValueAndValidity();
       }
-    }
-  }
-
-  private createStageNumberUniquenessValidator(): ValidatorFn {
-    return (group: AbstractControl): ValidationErrors | null => {
-      const jobNo = group.get('jobNo')?.value;
-      const stageNo = group.get('stageNo')?.value;
-
-      if (!jobNo || !stageNo) return null;
-
-      const job = this.jobs.find(j => j.jobno === jobNo);
-      if (job?.stages) {
-        const isDuplicate = job.stages.some(s => s.stageNo === stageNo);
-        return isDuplicate ? { stageNumberNotUnique: true } : null;
-      }
-      return null;
-    };
-  }
-
-  private validateStartDate(control: AbstractControl): ValidationErrors | null {
-    const startDate = new Date(control.value);
-    const qcStartDate = new Date(this.minStartDate);
-    const precedingStage = this.stageForm?.get('precedingStage')?.value;
-
-    if (precedingStage === '---' && startDate < qcStartDate) {
-      return { invalidStartDate: true };
-    }
-    return null;
-  }
-
-  private validateStartDateAfterPreceding(precedingEndDate: string, control: AbstractControl): ValidationErrors | null {
-    const startDate = new Date(control.value);
-    const endDate = new Date(precedingEndDate);
-
-    if (startDate < endDate) {
-      return { startDateBeforePreceding: true };
-    }
-    return null;
-  }
-
-  private validateStartEndDateRange(): ValidatorFn {
-    return (group: AbstractControl): ValidationErrors | null => {
-      const start = group.get('startDate')?.value;
-      const end = group.get('endDate')?.value;
-      if (start && end && new Date(start) > new Date(end)) {
-        return { dateRangeInvalid: true };
-      }
-      return null;
-    };
-  }
-
-  onSubmit(): void {
-    if (this.stageForm.invalid) {
-      this.stageForm.markAllAsTouched();
-      return;
-    }
-
-    const formValue = this.stageForm.getRawValue();
-    const stageData: JobStage = {
-      stageNo: formValue.stageNo,
-      stageDesc: formValue.stageDesc,
-      precedingStage: formValue.precedingStage,
-      startDate: formValue.startDate,
-      endDate: formValue.endDate,
-      qap: formValue.qap
-    };
-
-    if (this.isEditMode) {
-      this.updateStage(formValue.jobNo, stageData);
     } else {
-      this.addNewStage(formValue.jobNo, stageData);
+      this.minStartDate = this.currentJob?.qcstartdate || '';
+      this.stageForm.get('startDate')?.updateValueAndValidity();
     }
   }
-
-
-  private updateStage(jobNo: string, stageData: JobStage): void {
-    if (stageData.precedingStage !== '---') {
-      const job = this.jobs.find(j => j.jobno === jobNo);
-      const otherRootStages = job?.stages?.filter(s =>
-        s.stageNo !== this.currentStageNo && s.precedingStage === '---'
-      ) || [];
-
-      if (otherRootStages.length === 0) {
-        alert('At least one stage in a job should have preceding stage as "---".');
-        return;
-      }
-    }
-
-    this.jobService.updateStage(jobNo, this.currentStageNo!, stageData).subscribe({
-      next: () => {
-        alert('Stage updated successfully!');
-        // Navigate back to list or reset form as needed
-      },
-      error: (err) => console.error('Error updating stage:', err)
-    });
-  }
-
-  private addNewStage(jobNo: string, stageData: JobStage): void {
-    this.jobService.addStage(jobNo, stageData).subscribe({
-      next: () => {
-        alert('Stage added successfully!');
-
-        const currentJobNo = this.stageForm.get('jobNo')?.value;
-
-        this.stageForm.reset({
-          jobNo: currentJobNo,
-          stageNo: null,
-          stageDesc: '',
-          precedingStage: '---',
-          startDate: '',
-          endDate: '',
-          qap: ''
-        });
-
-        this.existingStages = [];
-        this.filteredQAPs = this.allQAPs;
-        this.minStartDate = '';
-        this.currentJobDepartment = '';
-      },
-      error: (err: any) => console.error('Error adding stage:', err)
-    });
-  }
-
 }
