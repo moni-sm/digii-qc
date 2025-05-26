@@ -39,14 +39,6 @@
         "startDate": "2025-05-29",
         "endDate": "2025-05-29",
         "qap": "QCE74MQAPECI006"
-      },
-      {
-        "stageNo": 5,
-        "stageDesc": "stage5",
-        "precedingStage": "1",
-        "startDate": "2025-05-30",
-        "endDate": "2025-05-30",
-        "qap": "undefined"
       }
     ]
   },
