@@ -52,7 +52,7 @@
   <div class="mb-4">
     <label for="precedingStageSelect" class="block font-medium text-gray-700 mb-1">Preceding Stage</label>
     <select id="precedingStageSelect" formControlName="precedingStage" class="w-full border rounded p-2">
-      <option value="---">--- (No preceding stage)</option>
+      <option value="---">{{ stageForm.get('precedingStage')?.value || '---' }}</option>
       <option *ngFor="let stage of existingStages" [value]="stage.stageNo"
         [hidden]="stage.stageNo >= (stageForm.get('stageNo')?.value || 999999)">
         {{ stage.stageNo }} - {{ stage.stageDesc }}
