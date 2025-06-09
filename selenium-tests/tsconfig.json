@@ -1,12 +1,13 @@
 {
   "compilerOptions": {
-    "target": "es6",
+    "target": "es2020",
     "module": "commonjs",
     "outDir": "./dist",
     "rootDir": "./",
     "strict": true,
     "esModuleInterop": true,
-    "types": ["node", "selenium-webdriver"]
+    "types": ["node", "selenium-webdriver"],
+    "skipLibCheck": true
   },
   "include": ["*.ts"]
 }

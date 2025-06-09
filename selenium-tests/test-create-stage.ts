@@ -138,10 +138,7 @@ async function runTest() {
     }
   } catch (error) {
     console.error('Test failed:', error);
-    // Take screenshot for debugging
-    const screenshot = await driver.takeScreenshot();
-    require('fs').writeFileSync('error.png', screenshot, 'base64');
-    console.log('Screenshot saved as error.png');
+
   } finally {
     await driver.quit();
   }
